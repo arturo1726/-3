@@ -1,0 +1,569 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <memory>
+#include <stdexcept>
+#include <algorithm>
+#include <limits>
+#include <cctype>
+#include <sstream>
+#include <locale>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+using namespace std;
+
+// Функция для настройки консоли
+void setupConsole() {
+    // Установка русской локали
+    setlocale(LC_ALL, "Russian");
+
+#ifdef _WIN32
+    // Настройка кодировки консоли для Windows
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+#endif
+}
+
+// Вспомогательные функции для проверки ввода
+bool isDigitsOnly(const string& str) {
+    for (char c : str) {
+        if (!isdigit(static_cast<unsigned char>(c))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isInteger(const string& str) {
+    if (str.empty()) return false;
+
+    // Проверяем первый символ на знак
+    size_t start = 0;
+    if (str[0] == '-' || str[0] == '+') {
+        start = 1;
+    }
+
+    // Проверяем остальные символы на цифры
+    for (size_t i = start; i < str.size(); ++i) {
+        if (!isdigit(static_cast<unsigned char>(str[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isDouble(const string& str) {
+    if (str.empty()) return false;
+
+    bool dotFound = false;
+    size_t start = 0;
+
+    // Проверяем первый символ на знак
+    if (str[0] == '-' || str[0] == '+') {
+        start = 1;
+    }
+
+    for (size_t i = start; i < str.size(); ++i) {
+        char c = str[i];
+        if (!isdigit(static_cast<unsigned char>(c))) {
+            if ((c == '.' || c == ',') && !dotFound) {
+                dotFound = true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool isValidCityName(const string& name) {
+    if (name.empty()) return false;
+
+    const string forbiddenChars = "!@#$%^&*()+=[]{}|;:,.<>?/\\\"'~`";
+
+    for (char c : name) {
+        if (forbiddenChars.find(c) != string::npos) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Общая функция для ввода целых чисел (для меню)
+int getIntInput(const string& prompt) {
+    string input;
+    int value;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        input.erase(0, input.find_first_not_of(" \t"));
+        input.erase(input.find_last_not_of(" \t") + 1);
+
+        if (input.empty()) {
+            cout << "Ошибка: Ввод не может быть пустым!" << endl;
+            continue;
+        }
+
+        if (!isInteger(input)) {
+            cout << "Ошибка: Введите целое число без букв и символов!" << endl;
+            continue;
+        }
+
+        try {
+            value = stoi(input);
+            break;
+        }
+        catch (const exception& e) {
+            cout << "Ошибка: Недопустимое число! Попробуйте снова." << endl;
+        }
+    }
+
+    return value;
+}
+
+// Функция для ввода положительных целых чисел (для количества и т.д.)
+int getPositiveIntInput(const string& prompt) {
+    string input;
+    int value;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        input.erase(0, input.find_first_not_of(" \t"));
+        input.erase(input.find_last_not_of(" \t") + 1);
+
+        if (input.empty()) {
+            cout << "Ошибка: Ввод не может быть пустым!" << endl;
+            continue;
+        }
+
+        if (!isDigitsOnly(input)) {
+            cout << "Ошибка: Введите целое положительное число без букв и символов!" << endl;
+            continue;
+        }
+
+        try {
+            value = stoi(input);
+            if (value <= 0) {
+                cout << "Ошибка: Число должно быть положительным!" << endl;
+                continue;
+            }
+            break;
+        }
+        catch (const exception& e) {
+            cout << "Ошибка: Недопустимое число! Попробуйте снова." << endl;
+        }
+    }
+
+    return value;
+}
+
+int getPercentInput(const string& prompt) {
+    string input;
+    int value;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        input.erase(0, input.find_first_not_of(" \t"));
+        input.erase(input.find_last_not_of(" \t") + 1);
+
+        if (input.empty()) {
+            cout << "Ошибка: Ввод не может быть пустым!" << endl;
+            continue;
+        }
+
+        if (!isInteger(input)) {
+            cout << "Ошибка: Введите целое число без букв, символов и дробной части!" << endl;
+            continue;
+        }
+
+        try {
+            value = stoi(input);
+            if (value < 1 || value > 90) {
+                cout << "Ошибка: Процент должен быть от 1 до 90!" << endl;
+                continue;
+            }
+            break;
+        }
+        catch (const exception& e) {
+            cout << "Ошибка: Недопустимое число! Попробуйте снова." << endl;
+        }
+    }
+
+    return value;
+}
+
+// Функция для ввода стоимости с ограничением (от 1 до 1000 рублей)
+double getPriceInput(const string& prompt) {
+    string input;
+    double value;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        input.erase(0, input.find_first_not_of(" \t"));
+        input.erase(input.find_last_not_of(" \t") + 1);
+
+        if (input.empty()) {
+            cout << "Ошибка: Ввод не может быть пустым!" << endl;
+            continue;
+        }
+
+        replace(input.begin(), input.end(), ',', '.');
+
+        if (!isDouble(input)) {
+            cout << "Ошибка: Введите число в формате 123.45 без букв и лишних символов!" << endl;
+            continue;
+        }
+
+        try {
+            value = stod(input);
+            if (value < 1.0) {
+                cout << "Ошибка: Стоимость должна быть не менее 1 рубля!" << endl;
+                continue;
+            }
+            if (value > 1000.0) {
+                cout << "Ошибка: Стоимость не может превышать 1000 рублей!" << endl;
+                continue;
+            }
+            break;
+        }
+        catch (const exception& e) {
+            cout << "Ошибка: Недопустимое число! Попробуйте снова." << endl;
+        }
+    }
+
+    return value;
+}
+
+string getStringInput(const string& prompt) {
+    string input;
+
+    while (true) {
+        cout << prompt;
+        getline(cin, input);
+
+        input.erase(0, input.find_first_not_of(" \t"));
+        input.erase(input.find_last_not_of(" \t") + 1);
+
+        if (input.empty()) {
+            cout << "Ошибка: Ввод не может быть пустым!" << endl;
+            continue;
+        }
+
+        if (!isValidCityName(input)) {
+            cout << "Ошибка: Название города содержит запрещенные символы! Разрешены только буквы, цифры, пробелы, дефисы и подчеркивания." << endl;
+            continue;
+        }
+
+        break;
+    }
+
+    return input;
+}
+
+// 1. Интерфейсный класс (абстрактный базовый класс)
+class ITariff {
+public:
+    virtual ~ITariff() = default;
+    virtual double calculatePrice() const = 0;
+    virtual string getCity() const = 0;
+    virtual string getInfo() const = 0;
+};
+
+// 2. Базовый класс стратегии
+class TariffStrategy : public ITariff {
+protected:
+    string city;
+    double basePrice;
+
+public:
+    TariffStrategy(const string& cityName, double price)
+        : city(cityName), basePrice(price) {
+
+        if (cityName.empty()) {
+            throw invalid_argument("Название города не может быть пустым");
+        }
+        if (price < 1.0) {
+            throw invalid_argument("Базовая стоимость должна быть не менее 1 рубля");
+        }
+        if (price > 1000.0) {
+            throw invalid_argument("Базовая стоимость не может превышать 1000 рублей");
+        }
+    }
+
+    string getCity() const override {
+        return city;
+    }
+
+    double getBasePrice() const {
+        return basePrice;
+    }
+};
+
+// 3. Конкретная стратегия - обычный тариф
+class RegularTariff : public TariffStrategy {
+public:
+    RegularTariff(const string& cityName, double price)
+        : TariffStrategy(cityName, price) {
+    }
+
+    double calculatePrice() const override {
+        return basePrice;
+    }
+
+    string getInfo() const override {
+        return "Город: " + city + ", Стоимость минуты: " +
+            to_string(static_cast<int>(basePrice)) + " руб. (Обычный тариф)";
+    }
+};
+
+// 4. Конкретная стратегия - льготный тариф
+class PreferentialTariff : public TariffStrategy {
+private:
+    int discountPercent;
+
+public:
+    PreferentialTariff(const string& cityName, double price, int discount)
+        : TariffStrategy(cityName, price), discountPercent(discount) {
+        if (discount < 1 || discount > 90) {
+            throw out_of_range("Скидка должна быть от 1 до 90 процентов");
+        }
+    }
+
+    double calculatePrice() const override {
+        return basePrice * (1 - discountPercent / 100.0);
+    }
+
+    int getDiscountPercent() const {
+        return discountPercent;
+    }
+
+    string getInfo() const override {
+        double finalPrice = calculatePrice();
+        return "Город: " + city + ", Базовая стоимость: " +
+            to_string(static_cast<int>(basePrice)) + " руб., Скидка: " +
+            to_string(discountPercent) + "%, Итоговая стоимость: " +
+            to_string(static_cast<int>(finalPrice)) + " руб./мин (Льготный)";
+    }
+};
+
+// 5. Класс АТС
+class ATC {
+private:
+    vector<unique_ptr<ITariff>> tariffs;
+
+public:
+    // Добавление обычного тарифа
+    void addRegularTariff(const string& city, double price) {
+        try {
+            tariffs.push_back(make_unique<RegularTariff>(city, price));
+            cout << "✓ Обычный тариф добавлен: " << city << " - " << price << " руб./мин" << endl;
+        }
+        catch (const exception& e) {
+            cerr << "Ошибка при добавлении обычного тарифа: " << e.what() << endl;
+            throw;
+        }
+    }
+
+    // Добавление льготного тарифа
+    void addPreferentialTariff(const string& city, double price, int discount) {
+        try {
+            tariffs.push_back(make_unique<PreferentialTariff>(city, price, discount));
+            cout << "✓ Льготный тариф добавлен: " << city << " - "
+                << price << " руб./мин (" << discount << "% скидка)" << endl;
+        }
+        catch (const exception& e) {
+            cerr << "Ошибка при добавлении льготного тарифа: " << e.what() << endl;
+            throw;
+        }
+    }
+
+    // Вычисление средней стоимости тарифов с учетом скидки
+    double calculateAveragePrice() const {
+        if (tariffs.empty()) {
+            throw runtime_error("Нет доступных тарифов для расчета средней стоимости");
+        }
+
+        double totalPrice = 0.0;
+        for (const auto& tariff : tariffs) {
+            totalPrice += tariff->calculatePrice();
+        }
+
+        return totalPrice / tariffs.size();
+    }
+
+    // Вывод всех тарифов
+    void displayAllTariffs() const {
+        if (tariffs.empty()) {
+            cout << "Нет доступных тарифов." << endl;
+            return;
+        }
+
+        cout << "\n=== Все тарифы на междугородние разговоры ===" << endl;
+        for (size_t i = 0; i < tariffs.size(); ++i) {
+            cout << i + 1 << ". " << tariffs[i]->getInfo() << endl;
+        }
+        cout << "=============================================" << endl;
+    }
+
+    // Получение количества тарифов
+    size_t getTariffCount() const {
+        return tariffs.size();
+    }
+
+    // Поиск тарифов по городу
+    void searchByCity(const string& city) const {
+        bool found = false;
+        cout << "\nРезультаты поиска по городу '" << city << "':" << endl;
+
+        for (const auto& tariff : tariffs) {
+            if (tariff->getCity() == city) {
+                cout << "✓ " << tariff->getInfo() << endl;
+                found = true;
+            }
+        }
+
+        if (!found) {
+            cout << "Тарифы для города '" << city << "' не найдены." << endl;
+        }
+    }
+
+    // Получение самого дешевого тарифа
+    string findCheapestTariff() const {
+        if (tariffs.empty()) {
+            throw runtime_error("Нет доступных тарифов");
+        }
+
+        auto minTariff = min_element(tariffs.begin(), tariffs.end(),
+            [](const unique_ptr<ITariff>& a, const unique_ptr<ITariff>& b) {
+                return a->calculatePrice() < b->calculatePrice();
+            });
+
+        return (*minTariff)->getCity() + " (Стоимость: " +
+            to_string(static_cast<int>((*minTariff)->calculatePrice())) + " руб./мин)";
+    }
+};
+
+// Функция для отображения меню
+void displayMenu() {
+    cout << "\n=== Система управления АТС ===" << endl;
+    cout << "1. Добавить обычный тариф" << endl;
+    cout << "2. Добавить льготный тариф" << endl;
+    cout << "3. Показать все тарифы" << endl;
+    cout << "4. Рассчитать среднюю стоимость тарифов" << endl;
+    cout << "5. Найти самый дешевый тариф" << endl;
+    cout << "6. Поиск тарифов по городу" << endl;
+    cout << "7. Количество тарифов" << endl;
+    cout << "0. Выход" << endl;
+    cout << "Выберите действие: ";
+}
+
+// Главная функция
+int main() {
+    // Настройка консоли для корректного отображения русского языка
+    setupConsole();
+
+    ATC atc;
+    int choice = 0;
+
+    cout << "=== Система управления АТС (тарифы на междугородние разговоры) ===" << endl;
+    cout << "Базовая стоимость ограничена: от 1 до 1000 рублей за минуту" << endl;
+
+    do {
+        displayMenu();
+        choice = getIntInput(""); // Используем общую функцию для меню
+
+        try {
+            switch (choice) {
+            case 0: {
+                cout << "Выход из программы. До свидания!" << endl;
+                break;
+            }
+
+            case 1: {
+                cout << "\n--- Добавление обычного тарифа ---" << endl;
+                string city = getStringInput("Введите город: ");
+                double price = getPriceInput("Введите стоимость минуты разговора (1-1000 руб.): ");
+
+                atc.addRegularTariff(city, price);
+                break;
+            }
+
+            case 2: {
+                cout << "\n--- Добавление льготного тарифа ---" << endl;
+                string city = getStringInput("Введите город: ");
+                double price = getPriceInput("Введите базовую стоимость минуты (1-1000 руб.): ");
+                int discount = getPercentInput("Введите размер льготы (1-90%): ");
+
+                atc.addPreferentialTariff(city, price, discount);
+                break;
+            }
+
+            case 3: {
+                cout << "\n--- Список всех тарифов ---" << endl;
+                atc.displayAllTariffs();
+                break;
+            }
+
+            case 4: {
+                try {
+                    double averagePrice = atc.calculateAveragePrice();
+                    cout << "\n--- Средняя стоимость тарифов ---" << endl;
+                    cout << "✓ Средняя стоимость минуты разговора: "
+                        << static_cast<int>(averagePrice) << " руб." << endl;
+                }
+                catch (const exception& e) {
+                    cout << "Ошибка: " << e.what() << endl;
+                }
+                break;
+            }
+
+            case 5: {
+                try {
+                    string cheapest = atc.findCheapestTariff();
+                    cout << "\n--- Самый дешевый тариф ---" << endl;
+                    cout << "✓ " << cheapest << endl;
+                }
+                catch (const exception& e) {
+                    cout << "Ошибка: " << e.what() << endl;
+                }
+                break;
+            }
+
+            case 6: {
+                cout << "\n--- Поиск тарифов по городу ---" << endl;
+                string city = getStringInput("Введите город для поиска: ");
+                atc.searchByCity(city);
+                break;
+            }
+
+            case 7: {
+                cout << "\n--- Статистика ---" << endl;
+                cout << "Количество тарифов в системе: " << atc.getTariffCount() << endl;
+                break;
+            }
+
+            default: {
+                cout << "Неверный выбор! Пожалуйста, выберите действие от 0 до 7." << endl;
+                break;
+            }
+            }
+        }
+        catch (const exception& e) {
+            cout << "Ошибка: " << e.what() << endl;
+        }
+
+    } while (choice != 0);
+
+    return 0;
+}
